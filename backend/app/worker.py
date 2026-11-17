@@ -24,10 +24,8 @@ from app.core.config import get_settings
 from app.core.logging import setup_logging
 from app.db import session_scope, utcnow
 from app.models import AppSetting, InventoryRun, InventorySnapshot, InventorySource
-from app.services import graph_session
-from app.services import remote_actions
+from app.services import graph_session, remote_actions, snapshots
 from app.services import runs as run_service
-from app.services import snapshots
 from app.services.alerts import check_stale_sources
 from app.services.bootstrap import ensure_reference_data, get_setting
 

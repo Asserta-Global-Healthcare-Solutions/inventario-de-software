@@ -16,8 +16,8 @@ from sqlalchemy.orm import Session
 from app.api.common import Page, _csv_safe, export_response, not_found, paginate
 from app.api.routes.devices import DEVICE_EXPORT_COLUMNS, device_export_rows, freshness
 from app.api.software_report import NO_DEPARTMENT, Install, _header, _sheet_title, build_workbook
-from app.connectors.base import ConnectorError
 from app.connectors import intune_compliance
+from app.connectors.base import ConnectorError
 from app.connectors.files import decode
 from app.connectors.graph_delegated import DeviceCodeLogin
 from app.core.config import get_settings
