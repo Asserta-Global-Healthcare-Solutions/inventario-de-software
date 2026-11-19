@@ -1,3 +1,9 @@
 #!/bin/sh
 node scripts/agentes/hooks/pre-commit.mjs
-exit 0
+
+if ! command -v ruff >/dev/null 2>&1; then
+  echo 'Ruff no esta instalado. Instala backend/requirements-dev.txt antes de hacer commit.' >&2
+  exit 1
+fi
+
+(cd backend && ruff check app tests alembic/env.py ../api)
