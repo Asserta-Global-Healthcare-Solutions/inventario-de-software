@@ -1,11 +1,12 @@
 import { useQuery } from "@tanstack/react-query";
 import { ArrowLeft, Archive, Pencil, RotateCcw, Upload } from "lucide-react";
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { Link, useNavigate, useParams, useSearchParams } from "react-router-dom";
 import { AuthBadge, ComplianceBadge, DeviceStatusBadge, FreshnessBadge, SourceBadge } from "@/components/badges";
 import { CompliancePanel } from "@/components/CompliancePanel";
 import { DataTable, type Column } from "@/components/DataTable";
 import { DeviceForm, type DeviceFormValues } from "@/components/DeviceForm";
+import { DOT_LABEL, FilterChips, authDot, type DotKind } from "@/components/kit";
 import { NotifyDialog, UninstallDialog } from "@/components/RemoteActionDialogs";
 import { UploadDialog } from "@/components/UploadDialog";
 import { Badge, Button, Card, ConfirmDialog, DefinitionList, EmptyState, ErrorState, Field, PageHeader, Spinner, Tabs } from "@/components/ui";
@@ -161,6 +162,9 @@ export default function DeviceDetail() {
   );
 }
 
+type Policy = Extract<DotKind, "unauthorized" | "pending" | "conditional" | "authorized">;
+const POLICY_ORDER: Policy[] = ["unauthorized", "pending", "conditional", "authorized"];
+
 function DeviceSoftware({ id }: { id: number }) {
   const can = useCan();
   const nav = useNavigate();
@@ -171,8 +175,13 @@ function DeviceSoftware({ id }: { id: number }) {
   const [search, setSearch] = useState("");
   const q = useQuery({ queryKey: ["device-software", id, removed],
     queryFn: () => api.get<{ items: InstalledSoftware[] }>(`/devices/${id}/software`, { include_removed: removed }) });
-  const rows = (q.data?.items ?? []).filter((s) => (!onlyRelevant || s.is_relevant) &&
-    (!search || `${s.name} ${s.publisher ?? ""}`.toLowerCase().includes(search.toLowerCase())));
+  const [policy, setPolicy] = useState<Policy | "all">("all");
+  // Los recuentos de los chips respetan el resto de filtros; el chip solo filtra por política.
+  const base = useMemo(() => (q.data?.items ?? []).filter((s) => (!onlyRelevant || s.is_relevant) &&
+    (!search || `${s.name} ${s.publisher ?? ""}`.toLowerCase().includes(search.toLowerCase()))), [q.data, onlyRelevant, search]);
+  const counts = useMemo(() => base.reduce<Record<string, number>>((a, s) => {
+    const k = authDot(s.authorization_status); a[k] = (a[k] ?? 0) + 1; return a; }, {}), [base]);
+  const rows = policy === "all" ? base : base.filter((s) => authDot(s.authorization_status) === policy);
   const cols: Column<InstalledSoftware>[] = [
     { id: "name", header: "Aplicación", cell: (s) => <Link className="font-medium hover:text-accent hover:underline" to={`/software/${s.product_id}`}>{s.name}</Link> },
     { id: "publisher", header: "Editor", cell: (s) => s.publisher ?? "—" },
@@ -195,6 +204,12 @@ function DeviceSoftware({ id }: { id: number }) {
           { label: "Desinstalar de este equipo…", danger: true, onSelect: () => setUninstalling(s.product_id) }] : []),
       ] })}
       rowClassName={(s) => (s.present ? undefined : "opacity-60")}
+      header={<div className="py-3">
+        <FilterChips label="Autorización" value={policy} onChange={setPolicy} options={[
+          { id: "all", label: "Todas", count: base.length },
+          ...POLICY_ORDER.map((k) => ({ id: k, label: DOT_LABEL[k] ?? k, count: counts[k] ?? 0, dot: k })),
+        ]} />
+      </div>}
       toolbar={<>
         <label className="flex items-center gap-1.5 text-sm text-muted">
           <input type="checkbox" checked={onlyRelevant} onChange={(e) => setOnlyRelevant(e.target.checked)} />
